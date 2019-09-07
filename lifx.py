@@ -121,6 +121,11 @@ LightState 		= DeviceMessage(107, '4HhH32sQ')
 LightGetPower 	= DeviceMessage(116)
 LightSetPower 	= DeviceMessage(117, 'HI')
 LightStatePower = DeviceMessage(118, 'H')
+LightSetWaveform 			= DeviceMessage(103, 'Bb4HIfsB')
+LightSetWaveformOptional 	= DeviceMessage(119, 'Bb4HIfsB4b')
+LightGetInfrared 			= DeviceMessage(120)
+LightStateInfrared 			= DeviceMessage(121, 'H')
+LightSetInfrared 			= DeviceMessage(121, 'H')
 
 # Constants in messages (and responses)
 SERVICE_UDP		= 1	# the only service type value provided in response to the GetService message
