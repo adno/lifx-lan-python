@@ -124,7 +124,8 @@ LightStatePower = DeviceMessage(118, 'H')
 
 # Constants in messages (and responses)
 SERVICE_UDP		= 1	# the only service type value provided in response to the GetService message
+USHRT_MAX		= 65535
 POWER_OFF		= 0
-POWER_ON		= 65535
+POWER_ON		= USHRT_MAX
 KELVIN_MIN		= 2500
 KELVIN_MAX		= 9000
