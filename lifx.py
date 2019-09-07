@@ -27,6 +27,8 @@ def get(Message, Response, *payload,
 	seq = _sequence = (_sequence + 1) % 256
 	data = Message.pack(_src, seq, device, ack, res, *payload)
 	_csoc.sendto(data, ('255.255.255.255', port))
+	if Response is None:
+	    return
 	# Receive response
 	mKey = (seq, Response.type)
 	while Response and (limit is None or limit > 0):
