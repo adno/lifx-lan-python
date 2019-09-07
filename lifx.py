@@ -2,12 +2,14 @@ import socket
 import uuid
 import struct
 
+DEFAULT_PORT	= 56700
+
 # Socket
 _csoc = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 _csoc.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 _csoc.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 _csoc.settimeout(0.5)
-_csoc.bind(('', 56700))
+_csoc.bind(('', DEFAULT_PORT))
 
 # Internal data
 _src = uuid.uuid1().node % 4294967296
@@ -15,13 +17,13 @@ _sequence = 0
 _messageQueue = dict()
 
 # Network interface
-def post(Message, *payload, device=0, port=56700):
+def post(Message, *payload, device=0, port=DEFAULT_PORT):
 	for _ in get(Message, None, *payload, device=device, port=port):
 		pass
 
 def get(Message, Response, *payload,
 	device=0, ack=0, res=0,
-	timeout=0.5, limit=None, port=56700):
+	timeout=0.5, limit=None, port=DEFAULT_PORT):
 	# Send packet
 	global _sequence
 	seq = _sequence = (_sequence + 1) % 256
@@ -119,3 +121,10 @@ LightState 		= DeviceMessage(107, '4HhH32sQ')
 LightGetPower 	= DeviceMessage(116)
 LightSetPower 	= DeviceMessage(117, 'HI')
 LightStatePower = DeviceMessage(118, 'H')
+
+# Constants in messages (and responses)
+SERVICE_UDP		= 1	# the only service type value provided in response to the GetService message
+POWER_OFF		= 0
+POWER_ON		= 65535
+KELVIN_MIN		= 2500
+KELVIN_MAX		= 9000
