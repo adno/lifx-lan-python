@@ -1,8 +1,20 @@
+"""
+A low-level python wrapper around the LIFX LAN v2 API.
+
+Adam Nohejl, 2019/9/8: Forked from https://github.com/marcushultman/\
+lifx-lan-python/, updated according to the current version of LIFX LAN v2 API
+and fixed a small bug.
+
+The `lifxctl` module/command line tool provides a slightly higher-level
+interface built on top of this.
+"""
+
 import socket
 import uuid
 import struct
 
-DEFAULT_PORT	= 56700
+DEFAULT_PORT		= 56700
+BROADCAST_ADDRESS	= '255.255.255.255'
 
 # Socket
 _csoc = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -17,18 +29,52 @@ _sequence = 0
 _messageQueue = dict()
 
 # Network interface
-def post(Message, *payload, device=0, port=DEFAULT_PORT):
-	for _ in get(Message, None, *payload, device=device, port=port):
+def post(Message, *payload, device=0, port=DEFAULT_PORT, address=None):
+	for __ in get(Message, None, *payload, device=device, port=port, address=address):
 		pass
 
-def get(Message, Response, *payload,
+def get(
+	Message, Response, *payload,
 	device=0, ack=0, res=0,
-	timeout=0.5, limit=None, port=DEFAULT_PORT):
+	timeout=0.5, limit=None, port=DEFAULT_PORT,
+	address=None, get_address=False
+	):
+	"""
+	Send a message and receive responses. Yields the responses as
+	(optional address, header, message data) pair/triples.
+
+	Use post() if you do not need a response.
+
+	Typical usage:
+	1. service discovery:
+	   get(GetService, StateService, get_address=True)
+	2. communication with a particular device (unicast, preferred)
+	   get(msg, svc, *payload, device=..., port=..., address=...)
+	3. communication with a particular device (broadcast)
+	   get(msg, svc, *payload, device=..., port=...)
+
+    Parameters:
+    - `Message` -- message struct for the message payload
+    - `Response` -- message struct for the expected response (or None, if no
+      response is expected)
+    - `payload` -- payload to formatted via Message and sent
+	- `device` and `port` -- use defaults for discovery via GetService
+	  (broadcast: address=None), then use the device and port from the response
+	  to GetService (unicast to a specific address)
+	- `ack`, `res` -- request acknowledgement/response
+	  TODO: we should have special code for managing both at the same time
+	- `timeout` -- timeout
+	- `limit` -- limit the number of responses accepted
+	- `address` -- an IP address for unicast (broadcast if None),
+	  use `get_address` to determine
+	- `get_address` -- if True get the device's IP address as the first item
+	  in the first item of the yielded tuple
+	"""
 	# Send packet
 	global _sequence
 	seq = _sequence = (_sequence + 1) % 256
 	data = Message.pack(_src, seq, device, ack, res, *payload)
-	_csoc.sendto(data, ('255.255.255.255', port))
+	_csoc.sendto(data, (address or BROADCAST_ADDRESS, port))
 	if Response is None:
 	    return
 	# Receive response
@@ -37,18 +83,23 @@ def get(Message, Response, *payload,
 		q = _messageQueue.setdefault(mKey, list())
 		try:
 			_csoc.settimeout(timeout)
-			data = q.pop(0) if len(q) else _csoc.recv(256)
+			data_sender = q.pop(0) if q else _csoc.recvfrom(256)
 		except socket.error:
 			break
 		else:
+			data, sender = data_sender
 			header = Header.unpack(data)
 			rKey = header[3:5]
 			if rKey == mKey:
-				yield header, Response.unpack(data[Header.size:])
+				if get_address:
+					# Do not return port (sender[0])
+					yield sender[0], header, Response.unpack(data[Header.size:])
+				else:
+					yield header, Response.unpack(data[Header.size:])
 				if limit is not None:
 					limit -= 1
-			else:
-				_messageQueue.setdefault(rKey, list()).append(data)
+			elif rKey != (seq, Message.type): # our own broadcasted message
+				_messageQueue.setdefault(rKey, list()).append(data_sender)
 
 # Data structures
 class Header():
@@ -125,7 +176,7 @@ LightSetWaveform 			= DeviceMessage(103, 'Bb4HIfsB')
 LightSetWaveformOptional 	= DeviceMessage(119, 'Bb4HIfsB4b')
 LightGetInfrared 			= DeviceMessage(120)
 LightStateInfrared 			= DeviceMessage(121, 'H')
-LightSetInfrared 			= DeviceMessage(121, 'H')
+LightSetInfrared 			= DeviceMessage(122, 'H')
 
 # Constants in messages (and responses)
 SERVICE_UDP		= 1	# the only service type value provided in response to the GetService message
