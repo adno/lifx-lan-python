@@ -183,5 +183,5 @@ SERVICE_UDP		= 1	# the only service type value provided in response to the GetSe
 USHRT_MAX		= 65535
 POWER_OFF		= 0
 POWER_ON		= USHRT_MAX
-KELVIN_MIN		= 2500
+KELVIN_MIN		= 1500
 KELVIN_MAX		= 9000
